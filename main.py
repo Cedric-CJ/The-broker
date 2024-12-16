@@ -48,6 +48,7 @@ class BoersenspielGUI:
         self.aktueller_spieler_index = 0
         self.aktie_auswahl_fenster_aktiv = False  # Kontrollvariable für die Aktienauswahl
         self.aktuelle_karte = None
+        self.bestaetigungs_button = None  # Speichert den Bestätigungsbutton
         self.zeige_spieler_info()
 
     def zeige_spieler_info(self):
@@ -250,44 +251,113 @@ class BoersenspielGUI:
         label_karten = tk.Label(self.root, text="Verfügbare Aktionskarten zum Spielen:")
         label_karten.pack()
 
+        self.karten_widgets = {}  # Speichere Widgets zur Aktualisierung
+        self.selected_karte_index = None  # Index der aktuell ausgewählten Karte
+
         for i, karte in enumerate(aktueller_spieler.karten):
             if karte.multiplier == "double":
                 karte_info = (f"*2 steigt {karte.fixed_up or 'X'} "
-                              f"und *0,5 fällt {karte.fixed_down or 'X'}")
+                            f"und *0,5 fällt {karte.fixed_down or 'X'}")
             else:
                 karte_info = (f"{karte.up_value}€ steigt {karte.fixed_up or 'X'} "
                               f"und {karte.down_value}€ fällt {karte.fixed_down or 'X'}")
 
-            button = tk.Button(self.root, text=karte_info, command=lambda k_idx=i: self.spiele_karte(k_idx))
-            button.pack(pady=2)
+            # Frame für jede Karte, um Umrandung hinzufügen zu können
+            frame = tk.Frame(self.root, relief=tk.GROOVE, bd=2)
+            frame.pack(pady=5, padx=5, fill="x")
+
+            label = tk.Label(frame, text=karte_info)
+            label.pack(side=tk.LEFT, padx=5)
+
+            self.karten_widgets[i] = frame  # Speichere das Frame für die Karte
+
+            button_auswaehlen = tk.Button(frame, text="Auswählen",
+                                      command=lambda k_idx=i: self.spiele_karte(k_idx))
+            button_auswaehlen.pack(side=tk.RIGHT, padx=5)
 
         button_back = tk.Button(self.root, text="Zurück", command=self.zeige_spieler_info)
         button_back.pack(pady=5)
 
+
+
     def spiele_karte(self, karten_index):
         aktueller_spieler = self.spieler[self.aktueller_spieler_index]
-        self.aktuelle_karte = aktueller_spieler.karten.pop(karten_index)
+        self.aktuelle_karte = aktueller_spieler.karten[karten_index]
+
+        if self.selected_karte_index is not None:
+            self.karten_widgets[self.selected_karte_index].config(bg="SystemButtonFace")
+
+        # Markiere die aktuelle Karte
+        self.karten_widgets[karten_index].config(bg="lightblue")
+        self.selected_karte_index = karten_index
+
+        # Spieler kann die Aktien für "Steigen" und "Fallen" auswählen oder ändern
+        self.wahle_aktien_fuer_karte()
+
+        # Speichere nur die Referenz zur Karte, entferne sie erst bei Bestätigung
+        self.aktuelle_karte = aktueller_spieler.karten[karten_index]
+
+        # Zeige die ausgewählte Karte optisch an
+        self.highlight_aktive_karte(karten_index)
 
         # Spieler wählt Aktie, die fällt, falls noch nicht gesetzt
         if not self.aktuelle_karte.fixed_down:
-            # Filtere die Optionen: Entferne die Aktie, die bereits für den "Up-Effekt" ausgewählt wurde
             verfuegbare_aktien = [a.name for a in self.aktien if a.name != self.aktuelle_karte.fixed_up]
             aktie_name_down = self.waehle_aktie_dialog("Wähle eine Aktie, die fallen soll:", verfuegbare_aktien)
             if aktie_name_down:
                 self.aktuelle_karte.fixed_down = aktie_name_down
+                self.update_karten_text()
 
         # Spieler wählt Aktie, die steigt, falls noch nicht gesetzt
         if not self.aktuelle_karte.fixed_up:
-            # Filtere die Optionen: Entferne die Aktie, die bereits für den "Down-Effekt" ausgewählt wurde
             verfuegbare_aktien = [a.name for a in self.aktien if a.name != self.aktuelle_karte.fixed_down]
             aktie_name_up = self.waehle_aktie_dialog("Wähle eine Aktie, die steigen soll:", verfuegbare_aktien)
             if aktie_name_up:
                 self.aktuelle_karte.fixed_up = aktie_name_up
+                self.update_karten_text()
 
-        # Bestätigungs-Button zum endgültigen Anwenden der Effekte
-        button_bestaetigen = tk.Button(self.root, text="Bestätigen", command=self.karte_effekte_anwenden)
-        button_bestaetigen.pack(pady=5)
+        # Vorhandenen Bestätigungsbutton entfernen, falls er existiert
+        if self.bestaetigungs_button:
+            self.bestaetigungs_button.destroy()
 
+        # Neuen Bestätigungsbutton erstellen
+        self.bestaetigungs_button = tk.Button(
+            self.root,
+            text="Bestätigen",
+            command=lambda: self.karte_endgueltig_bestaetigen(karten_index)
+        )
+        self.bestaetigungs_button.pack(pady=5)
+
+    def karte_endgueltig_bestaetigen(self, karten_index):
+        aktueller_spieler = self.spieler[self.aktueller_spieler_index]
+        aktueller_spieler.karten.pop(karten_index)  # Entferne die Karte endgültig
+        self.karte_effekte_anwenden()  # Wende die Karteffekte an
+
+
+    def highlight_aktive_karte(self, karten_index):
+        # Entferne vorherige Markierungen
+        for widget in self.root.winfo_children():
+            if isinstance(widget, tk.Button) and "bg" in widget.configure():
+                widget.config(bg="SystemButtonFace")  # Standardfarbe zurücksetzen
+
+        # Färbe die aktuell ausgewählte Karte
+        for i, widget in enumerate(self.root.winfo_children()):
+            if isinstance(widget, tk.Button) and i == karten_index:
+                widget.config(bg="lightblue", relief=tk.RAISED, bd=5)  # Hebe die Karte hervor
+
+    def update_karten_text(self):
+        for i, karte in enumerate(self.spieler[self.aktueller_spieler_index].karten):
+            widget = self.karten_widgets.get(i)
+            if widget:
+                # Prüfe, ob die Karte fixe Werte hat
+                up_text = karte.fixed_up if karte.fixed_up else "X"
+                down_text = karte.fixed_down if karte.fixed_down else "X"
+                new_text = f"{karte.up_value}€ steigt {up_text} und {karte.down_value}€ fällt {down_text}"
+
+                # Aktualisiere den Label-Text
+                for child in widget.winfo_children():
+                    if isinstance(child, tk.Label):
+                        child.config(text=new_text)
 
     def karte_effekte_anwenden(self):
         if not self.aktuelle_karte:
@@ -357,6 +427,24 @@ class BoersenspielGUI:
 
         self.root.wait_window(auswahl_fenster)
         return selected_stock[0]
+
+    def wahle_aktien_fuer_karte(self):
+        # Wähle Aktie für Down-Effekt, falls nicht festgelegt
+        if not self.aktuelle_karte.fixed_down:
+            verfuegbare_aktien_down = [a.name for a in self.aktien if a.name != self.aktuelle_karte.fixed_up]
+            aktie_name_down = self.waehle_aktie_dialog("Wähle eine Aktie, die fallen soll:", verfuegbare_aktien_down)
+            if aktie_name_down:
+                self.aktuelle_karte.fixed_down = aktie_name_down
+
+        # Wähle Aktie für Up-Effekt, falls nicht festgelegt
+        if not self.aktuelle_karte.fixed_up:
+            verfuegbare_aktien_up = [a.name for a in self.aktien if a.name != self.aktuelle_karte.fixed_down]
+            aktie_name_up = self.waehle_aktie_dialog("Wähle eine Aktie, die steigen soll:", verfuegbare_aktien_up)
+            if aktie_name_up:
+                self.aktuelle_karte.fixed_up = aktie_name_up
+
+        # Aktualisiere den Text der Karte
+        self.update_karten_text()
 
 
     def plot_stock_prices(self):
