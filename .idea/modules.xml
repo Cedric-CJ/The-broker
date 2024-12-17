@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/The-broker.iml" filepath="$PROJECT_DIR$/.idea/The-broker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/the_broker_with_flutter/the_broker_with_flutter.iml" filepath="$PROJECT_DIR$/the_broker_with_flutter/the_broker_with_flutter.iml" />
     </modules>
   </component>
 </project>

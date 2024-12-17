@@ -1,0 +1,28 @@
+name: the_broker_with_flutter
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Flutter Icons
+  cupertino_icons: ^1.0.8
+
+  # Paket für die grafische Darstellung
+  fl_chart: ^0.69.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Linting-Paket
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
